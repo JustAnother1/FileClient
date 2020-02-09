@@ -1,0 +1,100 @@
+= File Server
+
+Provides acess to files and the ability to store new files or change existing to clients.
+
+
+== HOW TO BUILD?
+
+I've provided a simple ant build script.
+So running with ant installed should be a simple:
+
++$ ant+
+
++$ java -jar JobServer.jar+
+
+
+== Protocol
+
+The communication is done over a not encrypted TCP connection. In a request/ response matter.
+
+The client sends a request for the next job. The server replies with the job description.
+
+=== version 1
+
+never implemented
+
+=== Version 2
+
+==== request
+To distinguish this version from Version one the client Request starts with the characters "2:". The next characters are the command. This is again followed by a ':'.
+This can then be followed up by one or more data sections. Each data sections contains of a type and a value. The type and value are strings. The format of a data section is <type>=<Value>:
+The commands may some information from data sections.
+Each request ends with a newline character.
+
+===== commands
+  * get file
+  ** Command String : "get"
+  ** needed data sections :
+  *** "file" : specifying the filename (including path)
+
+  * store file
+  ** Command String : "store"
+  ** needed data sections :
+  *** "file" : specifying the filename (including path)
+  *** "content" : specifying the content of the new file
+
+  * has file
+  ** Command String : "store"
+  ** needed data sections :
+  *** "file" : specifying the filename (including path)
+
+  * update file
+  ** Command String : "update"
+  ** needed data sections :
+  *** "file" : specifying the filename (including path) of an existing file
+  *** "content" : specifying the new content of the existing file
+
+==== response
+
+The server response starts with "2:". The next section represents the status of the response. These stati are defined:
+
+.Table: response stati
+[options="header"]
+|========================================
+| value | description
+| 0     | OK
+| 1     | command missing in request
+| 2     | server is busy, ask again later
+| 3     | could store the file.
+| 4     | could not retrieve the file
+| 5     | needed parameter missing
+| 6     | could not update the file
+|========================================
+
+after the status data sections (as on requests) can follow. The response ends with a newline character.
+
+Examples:
+"2:2:\n"  - server is busy
+
+==== transmitting file contents
+
+if in the request or in the response the content of a file needs to be transmitted then it will be send after the line feed that normally ends the request or response.
+
+The request or response needs to have a data section "fileContentLength" that defines the length in bytes of the content of the file. The file content will then be transmitted as byte stream directly following the line feed that ends the request or response. This will be followed by "2:\n".
+
+
+
+== LICENSE
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License version 2
+as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, see <http://www.gnu.org/licenses/>
+
