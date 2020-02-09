@@ -185,7 +185,7 @@ public class FileClient
             String requestHeaderString = RequestHeader.toString() + "\n";
             System.out.println("Sending Request: " + requestHeaderString);
             outToServer.writeBytes(requestHeaderString);
-            // send file date if we have to
+            // send file data if we have to
             if(true == sendFile)
             {
                 byte[] buf = new byte[4096];
@@ -193,7 +193,10 @@ public class FileClient
                 int num;
                 do {
                     num = fin.read(buf);
-                    outToServer.write(buf, 0, num);
+                    if(num > 0)
+                    {
+                        outToServer.write(buf, 0, num);
+                    }
                 }while(num > 0);
                 fin.close();
                 outToServer.writeBytes("2:\n");
