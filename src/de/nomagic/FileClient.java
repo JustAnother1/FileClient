@@ -33,15 +33,12 @@ public class FileClient
     {
         FileClient m = new FileClient();
         m.getConfigFromCommandLine(args);
-        if(true == m.doTheWork())
-        {
-            System.exit(0);
-        }
-        else
+        int res = m.doTheWork();
+        if(0 != res)
         {
             System.out.println("Failed !");
-            System.exit(2);
         }
+        System.exit(res);
     }
 
     private void printHelpText()
@@ -139,7 +136,7 @@ public class FileClient
         }
     }
 
-    public boolean doTheWork()
+    public int doTheWork()
     {
         // Connect to server
         connectTo(ServerURL, ServerPort);
@@ -148,12 +145,12 @@ public class FileClient
             System.err.println("Could not connect to Server !");
             System.exit(1);
         }
-        boolean res = executeCommand();
+        int res = executeCommand();
         disconnect();
         return res;
     }
 
-    public boolean executeCommand()
+    public int executeCommand()
     {
         try
         {
@@ -173,12 +170,12 @@ public class FileClient
                 if(false == LocalFile.exists())
                 {
                     System.err.println("ERROR: file that shall be send does not exist!");
-                    return false;
+                    return 2;
                 }
                 if(false == LocalFile.canRead())
                 {
                     System.err.println("ERROR: file that shall be send can not be read!");
-                    return false;
+                    return 3;
                 }
                 RequestHeader.append("fileContentLength=" + LocalFile.length() + ":");
             }
@@ -209,25 +206,25 @@ public class FileClient
             if('2' != b)
             {
                 System.err.println("ERROR: reply invalid (1)!");
-                return false;
+                return 4;
             }
             b = inFromServer.read();
             if(':' != b)
             {
                 System.err.println("ERROR: reply invalid (2)!");
-                return false;
+                return 5;
             }
             b = inFromServer.read();
             if('0' != b)
             {
                 System.out.println("Error state " + (char)b + " received from Server!");
-                return false;
+                return 6;
             }
             b = inFromServer.read();
             if(':' != b)
             {
                 System.err.println("ERROR: reply invalid (3)!");
-                return false;
+                return 7;
             }
             StringBuffer DataSections = new StringBuffer();
             do {
@@ -250,7 +247,7 @@ public class FileClient
                 if(0 == lengthOfFile)
                 {
                     System.err.println("ERROR: no file length provided by server !");
-                    return false;
+                    return 12;
                 }
                 LocalFile = new File(remoteFileName);
                 FileOutputStream fout = new FileOutputStream(LocalFile);
@@ -281,22 +278,22 @@ public class FileClient
                     System.err.println(" " + (char) b );
                     b = inFromServer.read();
                     System.err.println(" " + (char) b );
-                    return false;
+                    return 8;
                 }
                 b = inFromServer.read();
                 if(':' != b)
                 {
                     System.err.println("ERROR: reply invalid (5)!");
-                    return false;
+                    return 9;
                 }
                 b = inFromServer.read();
                 if('\n' != b)
                 {
                     System.err.println("ERROR: reply invalid (6)!");
-                    return false;
+                    return 10;
                 }
             }
-            return true;
+            return 0;
         }
         catch (IOException e)
         {
@@ -305,7 +302,7 @@ public class FileClient
             System.err.println("ERROR: IOException !");
         }
         System.err.println("ERROR: reply invalid (7)!");
-        return false;
+        return 11;
     }
 
     public void connectTo(String serverURL, int serverPort)
