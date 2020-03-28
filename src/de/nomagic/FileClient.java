@@ -48,13 +48,13 @@ public class FileClient
         System.err.println("-h");
         System.err.println("     : This text");
         System.err.println("-store <file name> <destination path and name>");
-        System.err.println("     : read jobs from text file 'file name'");
+        System.err.println("     : copy the local file to the server");
         System.err.println("-update <file name> <destination path and name>");
-        System.err.println("     : read jobs from text file 'file name'");
+        System.err.println("     : replace the file on the server with this newer one");
         System.err.println("-get <file name>");
-        System.err.println("     : read jobs from text files with .txt extension in the folder 'folder name'");
+        System.err.println("     : retrieve the file from the server");
         System.err.println("-has <file name>");
-        System.err.println("     : read jobs from text files with .txt extension in the folder 'folder name'");
+        System.err.println("     : check if the server has a file with that name.");
         System.err.println("-host hostname");
         System.err.println("     : connect to the remote server on the host 'hostname'");
         System.err.println("-port <port number>");
@@ -218,6 +218,21 @@ public class FileClient
             if('0' != b)
             {
                 System.out.println("Error state " + (char)b + " received from Server!");
+                StringBuffer Reason = new StringBuffer();
+                try
+                {
+                    do {
+                        b = inFromServer.read();
+                        Reason.append((char)b);
+                    }while('\n' != b);
+                }
+                catch (IOException e)
+                {
+                    isConnected = false;
+                    e.printStackTrace();
+                    System.err.println("ERROR: IOException !");
+                }
+                System.out.println("Reason: " + Reason.toString());
                 return 6;
             }
             b = inFromServer.read();
