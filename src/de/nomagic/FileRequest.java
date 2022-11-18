@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 
 public class FileRequest
 {
@@ -116,7 +117,8 @@ public class FileRequest
         }
         String requestHeaderString = RequestHeader.toString() + "\n";
         System.out.println("Sending Request: " + requestHeaderString);
-        outToServer.writeBytes(requestHeaderString);
+        byte[] b = requestHeaderString.getBytes(StandardCharsets.UTF_8);
+        outToServer.write(b, 0, b.length);
         // send file data if we have to
         if(true == sendFile)
         {
@@ -129,7 +131,8 @@ public class FileRequest
                     outToServer.write(buf, 0, num);
                 }
             }while(num > 0);
-            outToServer.writeBytes("2:\n");
+            byte[] end = "2:\n".getBytes(StandardCharsets.UTF_8);
+            outToServer.write(end, 0, end.length);
         }
         outToServer.flush();
         return OK;
@@ -140,6 +143,7 @@ public class FileRequest
         boolean identical = true;
         // get file length
         long lengthOfFile = 0;
+        long lengthToCompare = 0;
         for(int i = 0; i < sections.length; i++)
         {
             if(true == sections[i].startsWith("fileContentLength"))
@@ -159,7 +163,7 @@ public class FileRequest
         {
             if(lengthOfFile != localFileLength)
             {
-                System.err.println("COMAPRE: different file sizes !");
+                System.err.println("COMAPRE: different file sizes !(local: " + localFileLength + ", remote: " + lengthOfFile + ")");
                 identical = false;
             }
 
@@ -167,11 +171,20 @@ public class FileRequest
             byte[] localBuf = new byte[4096];
             boolean reported = false;
             int num;
+            if(localFileLength < lengthOfFile)
+            {
+                lengthToCompare = localFileLength;
+            }
+            else
+            {
+                lengthToCompare = lengthOfFile;
+            }
+            long stillToCompare = lengthToCompare;
             do {
                 int maxLength = 4096;
-                if(lengthOfFile < maxLength)
+                if(stillToCompare < maxLength)
                 {
-                    maxLength = (int)lengthOfFile;
+                    maxLength = (int)stillToCompare;
                 }
                 num = inFromServer.read(remoteBuf, 0, maxLength);
                 if(num > 0)
@@ -194,9 +207,26 @@ public class FileRequest
                             break;
                         }
                     }
-                    lengthOfFile = lengthOfFile - num;
+                    stillToCompare = stillToCompare - num;
                 }
             }while(num > 0);
+            // if local file was shorter read the rest of the remote file
+            lengthOfFile = lengthOfFile - lengthToCompare;
+            if(0 < lengthOfFile)
+            {
+                do {
+                    int maxLength = 4096;
+                    if(lengthOfFile < maxLength)
+                    {
+                        maxLength = (int)lengthOfFile;
+                    }
+                    num = inFromServer.read(remoteBuf, 0, maxLength);
+                    if(num > 0)
+                    {
+                        lengthOfFile = lengthOfFile - num;
+                    }
+                }while(num > 0);
+            }
         }
         else
         {
@@ -221,24 +251,42 @@ public class FileRequest
 
         // read end of reply
         int b = inFromServer.read();
+        if(-1 == b)
+        {
+            // no more bytes in the stream
+            System.err.println("ERROR: reply too short !");
+            return ERROR_SERVER_INVALID_REPLY;
+        }
         if('2' != b)
         {
-            System.err.println("ERROR: reply invalid (4) : " + (char) b + "!");
+            System.err.println("ERROR: reply invalid (4) : " + (char) b + " (" + b + ") !");
             b = inFromServer.read();
-            System.err.println(" " + (char) b );
+            System.err.println(" " + (char) b + " (" + b + ") !");
             b = inFromServer.read();
-            System.err.println(" " + (char) b );
+            System.err.println(" " + (char) b + " (" + b + ") !");
             b = inFromServer.read();
-            System.err.println(" " + (char) b );
+            System.err.println(" " + (char) b + " (" + b + ") !");
             return ERROR_SERVER_INVALID_REPLY;
         }
         b = inFromServer.read();
+        if(-1 == b)
+        {
+            // no more bytes in the stream
+            System.err.println("ERROR: reply too short !");
+            return ERROR_SERVER_INVALID_REPLY;
+        }
         if(':' != b)
         {
             System.err.println("ERROR: reply invalid (5)!");
             return ERROR_SERVER_INVALID_REPLY;
         }
         b = inFromServer.read();
+        if(-1 == b)
+        {
+            // no more bytes in the stream
+            System.err.println("ERROR: reply too short !");
+            return ERROR_SERVER_INVALID_REPLY;
+        }
         if('\n' != b)
         {
             System.err.println("ERROR: reply invalid (6)!");
@@ -299,18 +347,36 @@ public class FileRequest
 
             // Parse reply
             int b = inFromServer.read();
+            if(-1 == b)
+            {
+                // no more bytes in the stream
+                System.err.println("ERROR: reply too short !");
+                return ERROR_SERVER_INVALID_REPLY;
+            }
             if('2' != b)
             {
                 System.err.println("ERROR: reply invalid (1)!");
                 return ERROR_SERVER_INVALID_REPLY;
             }
             b = inFromServer.read();
+            if(-1 == b)
+            {
+                // no more bytes in the stream
+                System.err.println("ERROR: reply too short !");
+                return ERROR_SERVER_INVALID_REPLY;
+            }
             if(':' != b)
             {
                 System.err.println("ERROR: reply invalid (2)!");
                 return ERROR_SERVER_INVALID_REPLY;
             }
             b = inFromServer.read();
+            if(-1 == b)
+            {
+                // no more bytes in the stream
+                System.err.println("ERROR: reply too short !");
+                return ERROR_SERVER_INVALID_REPLY;
+            }
             if('0' != b)
             {
                 System.out.println("Error state " + (char)b + " received from Server!");
@@ -321,7 +387,7 @@ public class FileRequest
                     do {
                         b = inFromServer.read();
                         Reason.append((char)b);
-                    }while('\n' != b);
+                    }while(('\n' != b) && (-1 != b));
                 }
                 catch (IOException e)
                 {
@@ -332,6 +398,12 @@ public class FileRequest
                 return (Math.abs(err) * -1) + ERR_REPORTED_SERVER;
             }
             b = inFromServer.read();
+            if(-1 == b)
+            {
+                // no more bytes in the stream
+                System.err.println("ERROR: reply too short !");
+                return ERROR_SERVER_INVALID_REPLY;
+            }
             if(':' != b)
             {
                 System.err.println("ERROR: reply invalid (3)!");
@@ -341,7 +413,7 @@ public class FileRequest
             do {
                 b = inFromServer.read();
                 DataSections.append((char)b);
-            }while('\n' != b);
+            }while(('\n' != b) && (-1 != b));
             String[] sections = DataSections.toString().split(":");
             if(true == receiveFile)
             {
